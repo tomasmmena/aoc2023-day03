@@ -3,29 +3,56 @@ use std::fs;
 use std::io::{self, BufRead};
 
 
-/// This function recieves a location of a number string in the matrix that contains the engine schematic.
-/// If the value is in contact with a symbol, this function parses the number and returns it, otherwise, 
-/// this function returns a 0.
+fn explore_number(lines: &Vec<Vec<char>>, i: usize, j: usize) -> usize {
+    let mut from_j = j;
+    let mut to_j = j;
+
+    while from_j > 0 {
+        if !lines[i][from_j - 1].is_digit(10) {
+            break;
+        }
+        from_j -= 1;
+    }
+
+    while to_j < lines[i].len() - 1 {
+        if !lines[i][to_j + 1].is_digit(10) {
+            break;
+        }
+        to_j += 1;
+    }
+    let substring = lines[i][from_j..=to_j].iter().collect::<String>();
+    substring.parse::<usize>().unwrap()
+}
+
+
+/// This function recieves a location of a gear in the schematic and looks for numbers around it to 
+/// calculate its ratio. If less or more than 2 numbers are found, it returns 0 instead.
 /// 
 /// # Arguments
 /// 
 /// * `lines` - The schematic as a reference to vector of vectors of chars.
-/// * `i` - Index of the string that contains the digit sequence that's being checked.
-/// * `j_start` - Index where the substring with the sequence begins.
-/// * `j_end` - Index where the substring with the sequence ends.
-fn check_number(lines: &Vec<Vec<char>>, i: usize, j_from: usize, j_to: usize) -> usize {
+/// * `i` - Index of the string that contains the gear that's being checked.
+/// * `j` - Index where the gear is located in the substring.
+fn check_ratio(lines: &Vec<Vec<char>>, i: usize, j: usize) -> usize {
     let from_i = if i == 0 { 0 } else { i - 1 };
     let to_i = if i == lines.len() - 1 { i } else { i + 1 };
-    let from_j: usize = if j_from == 0 { 0 } else { j_from - 1 };
-    let to_j: usize = if j_to == lines[i].len() - 1 { j_to } else { j_to + 1 };
 
+    let mut numbers: Vec<usize> = vec![];
     for x in from_i..=to_i {
-        for y in from_j..to_j {
-            if !(lines[x][y].is_digit(10) || lines[x][y] == '.') {
-                let substring = lines[i][j_from..j_to].iter().collect::<String>();
-                return substring.parse::<usize>().unwrap();
+        if lines[x][j].is_digit(10) {
+            numbers.push(explore_number(lines, x, j))
+        } else {
+            if j > 0 && lines[x][j - 1].is_digit(10) {
+                numbers.push(explore_number(lines, x, j - 1))
+            }
+            if j < lines[x].len() - 1 && lines[x][j + 1].is_digit(10) {
+                numbers.push(explore_number(lines, x, j + 1))
             }
         }
+    }
+
+    if numbers.len() == 2 {
+        return numbers[0] * numbers[1]
     }
 
     0
@@ -44,23 +71,13 @@ fn main() {
     let mut accumulator: usize = 0;
 
     for i in 0..lines.len() {
-        let mut digits: bool = false;  // are we examining a stream of digits
-        let mut first_digit: usize = 0;  // when did that stream start
         for j in 0..lines[i].len() {
-            match (digits, lines[i][j].is_digit(10)) {
-                (false, true) => {  // starting new stream of digits
-                    digits = true;
-                    first_digit = j;
-                }
-                (true, false) => {  // finishing stream of digits
-                    accumulator += check_number(&lines, i, first_digit, j);
-                    digits = false;
-                }
-                _ => {}
+            if lines[i][j] == '*' {
+                accumulator += check_ratio(&lines, i, j);
             }
         }
 
     }
 
-    println!("Total value of parts: {}", accumulator);
+    println!("Total value of ratios: {}", accumulator);
 }
